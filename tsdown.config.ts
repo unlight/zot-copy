@@ -8,8 +8,4 @@ export default defineConfig({
   clean: true,
   dts: false,
   fixedExtension: false,
-  deps: {
-    alwaysBundle: ['marked', 'marked-jira'],
-    onlyBundle: ['marked', 'marked-jira'],
-  },
 });
