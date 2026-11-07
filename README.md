@@ -94,26 +94,6 @@ conventional commits, bumps the version in `extension.json`, `package.json`
 and `copy.ts`, updates `CHANGELOG.md`, then commits, tags and opens the GitHub
 release. Nothing is published to npm.
 
-## Structure
-
-```text
-zot-copy/
-├── extension.json      # manifest
-├── copy.ts             # protocol loop and session state, executed by Node
-├── clipboard.ts        # clipboard backends and fallback chain
-├── transcript.ts       # session transcript lookup and text extraction
-├── protocol.ts         # JSON-line plumbing shared by the modules
-├── sync-version.ts     # release version sync
-├── copy.test.ts        # wire-level tests
-├── eslint.config.mjs   # lint rules
-├── prettier.config.mjs # formatter settings
-├── release.config.mjs  # semantic-release setup
-├── package.json        # scripts and dev dependencies
-├── tsconfig.json       # typecheck config, no emit
-├── .github/workflows/ci.yml # lint, tests and release
-└── .gitignore
-```
-
 ## Requirements
 
 - Node.js 22.18+
