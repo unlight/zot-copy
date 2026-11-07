@@ -29,7 +29,7 @@ jobs:
           node-version: ${{ matrix.node-version }}
 
       - name: 'Install Dependencies'
-        run: npm install
+        run: npm ci
 
       - name: 'Lint'
         run: npm run lint
@@ -65,7 +65,7 @@ jobs:
           node-version: 26
 
       - name: 'Install Dependencies'
-        run: npm install
+        run: npm ci
 
       - name: 'Set git identity'
         # @semantic-release/git runs a bare git commit; the runner has no identity.
