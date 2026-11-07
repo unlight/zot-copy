@@ -25,7 +25,7 @@
   "scripts": {
     "test": "node --test copy.test.ts",
     "typecheck": "tsc --noEmit",
-    "eslint": "eslint copy.ts copy.test.ts",
+    "eslint": "eslint '*.ts'",
     "eslint:fix": "npm run eslint -- --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

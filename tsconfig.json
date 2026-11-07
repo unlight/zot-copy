@@ -8,9 +8,10 @@
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "erasableSyntaxOnly": true,
+    "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
     "noEmit": true,
     "skipLibCheck": true
   },
-  "include": ["copy.ts", "copy.test.ts"]
+  "include": ["*.ts"]
 }

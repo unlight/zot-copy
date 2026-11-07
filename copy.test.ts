@@ -14,7 +14,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { delimiter, join } from 'node:path';
+import path from 'node:path';
 import { test } from 'node:test';
 import type { TestContext } from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -38,13 +38,18 @@ function line(item: unknown): string {
 }
 
 function makeFixture(t: TestContext): Fixture {
-  const base = mkdtempSync(join(tmpdir(), 'zot-copy-'));
+  const base = mkdtempSync(path.join(tmpdir(), 'zot-copy-'));
   t.after(() => rmSync(base, { recursive: true, force: true }));
-  const bin = join(base, 'bin');
-  const home = join(base, 'zot-home');
+  const bin = path.join(base, 'bin');
+  const home = path.join(base, 'zot-home');
   mkdirSync(bin);
   mkdirSync(home);
-  return { bin, home, cwd: '/work/demo', capture: join(base, CAPTURED) };
+  return {
+    bin,
+    home,
+    cwd: '/work/demo',
+    capture: path.join(base, CAPTURED),
+  };
 }
 
 /**
@@ -58,11 +63,11 @@ function runExtension(
   const environment: Record<string, string | undefined> = { ...process.env };
   delete environment.WAYLAND_DISPLAY;
   environment.DISPLAY = ':0';
-  environment.PATH = `${bin}${delimiter}${process.env.PATH ?? ''}`;
+  environment.PATH = `${bin}${path.delimiter}${process.env.PATH ?? ''}`;
   environment.ZOT_HOME = '';
   Object.assign(environment, environmentExtra);
   const proc = spawnSync(process.execPath, [SCRIPT], {
-    input: lines.map(line).join(''),
+    input: lines.map(item => line(item)).join(''),
     encoding: 'utf8',
     env: environment,
     timeout: 30_000,
@@ -100,7 +105,7 @@ function helloAck(f: Fixture): JsonObject {
   return {
     type: 'hello_ack',
     cwd: f.cwd,
-    extension_dir: join(f.home, 'extensions', 'copy'),
+    extension_dir: path.join(f.home, 'extensions', 'copy'),
   };
 }
 
@@ -112,7 +117,7 @@ function writeSession(
   sessionId: string,
   messages: unknown[],
 ): string {
-  const directory = join(
+  const directory = path.join(
     f.home,
     'sessions',
     createHash('sha256').update(f.cwd).digest('hex').slice(0, 16),
@@ -122,20 +127,20 @@ function writeSession(
     { type: 'meta', meta: { id: sessionId, cwd: f.cwd, alias: 'old-one' } },
   ];
   for (const message of messages) rows.push({ type: 'message', message });
-  const path = join(directory, 'named-old-one.jsonl');
+  const filePath = path.join(directory, 'named-old-one.jsonl');
   writeFileSync(
-    path,
+    filePath,
     rows.map(row => JSON.stringify(row) + '\n').join(''),
     'utf8',
   );
-  return path;
+  return filePath;
 }
 
 /**
 Install a fake clipboard tool that captures stdin and exits with code.
 */
 function stubTool(f: Fixture, name: string, exitCode = 0): string {
-  const script = join(f.bin, name);
+  const script = path.join(f.bin, name);
   writeFileSync(
     script,
     `#!/bin/sh\ncat > "${f.capture}"\nexit ${exitCode}\n`,
@@ -145,7 +150,7 @@ function stubTool(f: Fixture, name: string, exitCode = 0): string {
   return script;
 }
 
-test('handshake order', t => {
+void test('handshake order', t => {
   const frames = runLines(makeFixture(t), [{ type: 'hello_ack' }]);
   assert.deepEqual(
     frames.map(frame => frame.type),
@@ -157,7 +162,7 @@ test('handshake order', t => {
   assert.ok(events.includes('turn_end'));
 });
 
-test('nothing to copy before any message', t => {
+void test('nothing to copy before any message', t => {
   const frames = runLines(makeFixture(t), [
     { type: 'hello_ack' },
     { type: 'command_invoked', id: 'c1', name: 'copy' },
@@ -165,7 +170,7 @@ test('nothing to copy before any message', t => {
   assert.ok(displayed(firstResponse(frames)).startsWith('Nothing to copy yet'));
 });
 
-test('copies last assistant message', { skip: LINUX_ONLY }, t => {
+void test('copies last assistant message', { skip: LINUX_ONLY }, t => {
   const f = makeFixture(t);
   stubTool(f, 'xclip');
   const frames = runLines(f, [
@@ -178,7 +183,7 @@ test('copies last assistant message', { skip: LINUX_ONLY }, t => {
   assert.equal(readFileSync(f.capture, 'utf8'), 'привет');
 });
 
-test('clipboard failure sends only error', { skip: LINUX_ONLY }, t => {
+void test('clipboard failure sends only error', { skip: LINUX_ONLY }, t => {
   const f = makeFixture(t);
   stubTool(f, 'xclip', 1);
   stubTool(f, 'xsel', 1);
@@ -193,21 +198,25 @@ test('clipboard failure sends only error', { skip: LINUX_ONLY }, t => {
   assert.ok(!('display' in response));
 });
 
-test('turn_start keeps last completed response', { skip: LINUX_ONLY }, t => {
-  const f = makeFixture(t);
-  stubTool(f, 'xclip');
-  const frames = runLines(f, [
-    { type: 'hello_ack' },
-    { type: 'event', event: 'assistant_message', text: 'готово' },
-    { type: 'event', event: 'turn_end', stop: 'end_turn' },
-    { type: 'event', event: 'turn_start', step: 2 },
-    { type: 'command_invoked', id: 'c1', name: 'copy' },
-  ]);
-  assert.ok(displayed(firstResponse(frames)).startsWith('Copied the last'));
-  assert.equal(readFileSync(f.capture, 'utf8'), 'готово');
-});
+void test(
+  'turn_start keeps last completed response',
+  { skip: LINUX_ONLY },
+  t => {
+    const f = makeFixture(t);
+    stubTool(f, 'xclip');
+    const frames = runLines(f, [
+      { type: 'hello_ack' },
+      { type: 'event', event: 'assistant_message', text: 'готово' },
+      { type: 'event', event: 'turn_end', stop: 'end_turn' },
+      { type: 'event', event: 'turn_start', step: 2 },
+      { type: 'command_invoked', id: 'c1', name: 'copy' },
+    ]);
+    assert.ok(displayed(firstResponse(frames)).startsWith('Copied the last'));
+    assert.equal(readFileSync(f.capture, 'utf8'), 'готово');
+  },
+);
 
-test('tool_use step is not copied', t => {
+void test('tool_use step is not copied', t => {
   const frames = runLines(makeFixture(t), [
     { type: 'hello_ack' },
     { type: 'event', event: 'assistant_message', text: 'I will inspect' },
@@ -217,7 +226,7 @@ test('tool_use step is not copied', t => {
   assert.ok(displayed(firstResponse(frames)).startsWith('Nothing to copy yet'));
 });
 
-test(
+void test(
   'tool_use step does not replace previous response',
   { skip: LINUX_ONLY },
   t => {
@@ -237,7 +246,7 @@ test(
   },
 );
 
-test('session boundary clears completed response', t => {
+void test('session boundary clears completed response', t => {
   for (const boundary of ['session_start', 'session_end']) {
     const frames = runLines(makeFixture(t), [
       { type: 'hello_ack' },
@@ -253,7 +262,7 @@ test('session boundary clears completed response', t => {
   }
 });
 
-test('malformed frame keeps running', t => {
+void test('malformed frame keeps running', t => {
   const frames = runLines(makeFixture(t), [
     { type: 'hello_ack' },
     'not json',
@@ -262,28 +271,40 @@ test('malformed frame keeps running', t => {
   assert.equal(firstResponse(frames).id, 'c1');
 });
 
-test('copies transcript text after session load', { skip: LINUX_ONLY }, t => {
-  const f = makeFixture(t);
-  stubTool(f, 'xclip');
-  writeSession(f, 'sess-1', [
-    { role: 'user', content: [{ text: 'вопрос' }] },
-    { role: 'assistant', content: [{ text: 'старый ответ' }] },
-    { role: 'assistant', content: [{ summary: 'размышление' }] },
-    { role: 'assistant', content: [{ id: 't1', name: 'bash', arguments: {} }] },
-    { role: 'assistant', content: [{ text: 'новый ответ' }] },
-  ]);
-  const frames = runLines(f, [
-    helloAck(f),
-    { type: 'event', event: 'session_start', session_id: 'sess-1', cwd: f.cwd },
-    { type: 'command_invoked', id: 'c1', name: 'copy' },
-  ]);
-  assert.ok(displayed(firstResponse(frames)).startsWith('Copied the last'));
-  assert.equal(readFileSync(f.capture, 'utf8'), 'новый ответ');
-});
+void test(
+  'copies transcript text after session load',
+  { skip: LINUX_ONLY },
+  t => {
+    const f = makeFixture(t);
+    stubTool(f, 'xclip');
+    writeSession(f, 'sess-1', [
+      { role: 'user', content: [{ text: 'вопрос' }] },
+      { role: 'assistant', content: [{ text: 'старый ответ' }] },
+      { role: 'assistant', content: [{ summary: 'размышление' }] },
+      {
+        role: 'assistant',
+        content: [{ id: 't1', name: 'bash', arguments: {} }],
+      },
+      { role: 'assistant', content: [{ text: 'новый ответ' }] },
+    ]);
+    const frames = runLines(f, [
+      helloAck(f),
+      {
+        type: 'event',
+        event: 'session_start',
+        session_id: 'sess-1',
+        cwd: f.cwd,
+      },
+      { type: 'command_invoked', id: 'c1', name: 'copy' },
+    ]);
+    assert.ok(displayed(firstResponse(frames)).startsWith('Copied the last'));
+    assert.equal(readFileSync(f.capture, 'utf8'), 'новый ответ');
+  },
+);
 
-test('unknown session stays empty', t => {
+void test('unknown session stays empty', t => {
   const f = makeFixture(t);
-  writeSession(f, 'sess-1', [
+  writeSession(f, 'sess-2', [
     { role: 'assistant', content: [{ text: 'чужое' }] },
   ]);
   const frames = runLines(f, [

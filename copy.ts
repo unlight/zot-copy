@@ -3,21 +3,22 @@
 zot /copy — copy the last agent response to the system clipboard.
 */
 
-import { spawn } from 'node:child_process';
-import { createHash } from 'node:crypto';
-import { createReadStream, readdirSync } from 'node:fs';
-import { homedir } from 'node:os';
-import { basename, dirname, join } from 'node:path';
 import { createInterface } from 'node:readline';
 
-type JsonObject = Record<string, unknown>;
-type ClipboardCommand = [string, ...string[]];
+import { copyToClipboard } from './clipboard.ts';
+import {
+  errorMessage,
+  isObject,
+  log,
+  NAME,
+  send,
+  textField,
+} from './protocol.ts';
+import type { JsonObject } from './protocol.ts';
+import { lastStoredText } from './transcript.ts';
 
-const NAME = 'copy';
 const VERSION = '1.0.0';
 const CAPABILITIES = ['commands'];
-const CLIPBOARD_TIMEOUT_MS = 2000; // per candidate
-const CLIPBOARD_BUDGET_MS = 5000; // whole chain, keeps the frame loop responsive
 const SUBSCRIBED_EVENTS = [
   'assistant_message',
   'turn_end',
@@ -26,131 +27,21 @@ const SUBSCRIBED_EVENTS = [
   'session_end',
 ];
 
-const IS_MACOS = process.platform === 'darwin';
-
-let lastText = '';
-let stepText = '';
-let currentSessionId = '';
-let currentCwd = '';
-let extensionDir = '';
-
-function send(frame: JsonObject): void {
-  process.stdout.write(`${JSON.stringify(frame)}\n`);
+interface SessionState {
+  cwd: string;
+  extensionDirectory: string;
+  lastText: string;
+  sessionId: string;
+  stepText: string;
 }
 
-function log(message: string): void {
-  process.stderr.write(`[${NAME}] ${message}\n`);
-}
-
-function isObject(value: unknown): value is JsonObject {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function textField(frame: JsonObject, key: string): string {
-  const value = frame[key];
-  return typeof value === 'string' ? value : '';
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
-function formatSeconds(ms: number): string {
-  return String(Math.round(ms / 100) / 10);
-}
-
-function clipboardCandidates(): ClipboardCommand[] {
-  if (IS_MACOS) return [['pbcopy']];
-  const candidates: ClipboardCommand[] = [];
-  if (process.env.WAYLAND_DISPLAY) candidates.push(['wl-copy']);
-  candidates.push(
-    ['xclip', '-selection', 'clipboard'],
-    ['xsel', '--clipboard', '--input'],
-  );
-  return candidates;
-}
-
-function clipboardAvailable(): boolean {
-  return IS_MACOS
-    ? true
-    : Boolean(process.env.WAYLAND_DISPLAY || process.env.DISPLAY);
-}
-
-function tryCandidate(
-  argv: ClipboardCommand,
-  text: string,
-  timeoutMs: number,
-): Promise<string> {
-  const [command, ...arguments_] = argv;
-  return new Promise(resolve => {
-    let isSettled = false;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const finish = (failure: string): void => {
-      if (isSettled) return;
-      isSettled = true;
-      if (timer) clearTimeout(timer);
-      resolve(failure);
-    };
-    const child = spawn(command, arguments_, {
-      stdio: ['pipe', 'ignore', 'ignore'] as const,
-    });
-    timer = setTimeout(
-      () => {
-        child.kill('SIGKILL');
-        finish(`${command} timed out after ${formatSeconds(timeoutMs)}s`);
-      },
-      Math.max(1, timeoutMs),
-    );
-    child.once('error', (error: NodeJS.ErrnoException) => {
-      finish(
-        error.code === 'ENOENT'
-          ? `${command} not found`
-          : `${command}: ${error.message}`,
-      );
-    });
-    child.once('exit', (code, signal) => {
-      finish(
-        code === 0
-          ? ''
-          : `${command} exited with ${code ?? signal ?? 'unknown'}`,
-      );
-    });
-    child.stdin.on('error', () => {
-      // The tool may exit before it reads the payload; the exit code decides.
-    });
-    child.stdin.end(text);
-  });
-}
-
-async function copyToClipboard(
-  text: string,
-): Promise<{ ok: boolean; reason: string }> {
-  if (!clipboardAvailable()) {
-    return {
-      ok: false,
-      reason:
-        'clipboard unavailable: no X11/Wayland display (DISPLAY/WAYLAND_DISPLAY unset)',
-    };
-  }
-  const deadline = Date.now() + CLIPBOARD_BUDGET_MS;
-  const failures: string[] = [];
-  for (const argv of clipboardCandidates()) {
-    const remaining = deadline - Date.now();
-    if (remaining <= 0) {
-      failures.push('out of time budget');
-      break;
-    }
-    const failure = await tryCandidate(
-      argv,
-      text,
-      Math.min(CLIPBOARD_TIMEOUT_MS, remaining),
-    );
-    if (!failure) return { ok: true, reason: '' };
-    log(failure);
-    failures.push(failure);
-  }
-  return { ok: false, reason: `clipboard failed: ${failures.join('; ')}` };
-}
+const state: SessionState = {
+  cwd: '',
+  extensionDirectory: '',
+  lastText: '',
+  sessionId: '',
+  stepText: '',
+};
 
 function respond(commandId: string, display = '', error = ''): void {
   // The host drops display text when error is set, so send only one of them.
@@ -164,153 +55,18 @@ function respond(commandId: string, display = '', error = ''): void {
   send(frame);
 }
 
-/**
-Guess zot's state directory; the host never reveals it directly.
-*/
-function zotHomeCandidates(): string[] {
-  const homes: string[] = [];
-  if (process.env.ZOT_HOME) homes.push(process.env.ZOT_HOME);
-  if (process.env.XDG_STATE_HOME)
-    homes.push(join(process.env.XDG_STATE_HOME, 'zot'));
-  const home = homedir();
-  if (IS_MACOS) {
-    homes.push(join(home, 'Library', 'Application Support', 'zot'));
-  } else {
-    homes.push(join(home, '.local', 'state', 'zot'));
-  }
-  if (extensionDir) {
-    const parent = dirname(extensionDir);
-    if (
-      basename(parent) === 'extensions' &&
-      basename(dirname(parent)) !== '.zot'
-    ) {
-      homes.push(dirname(parent));
-    }
-  }
-  return [...new Set(homes)];
-}
-
-function sessionDirName(cwd: string): string {
-  return createHash('sha256').update(cwd, 'utf8').digest('hex').slice(0, 16);
-}
-
-/**
-Session id recorded in the meta line of a transcript.
-*/
-async function readSessionId(path: string): Promise<string> {
-  const input = createReadStream(path, { encoding: 'utf8' });
-  const lines = createInterface({ input, crlfDelay: Infinity });
-  try {
-    for await (const line of lines) {
-      const row: unknown = JSON.parse(line);
-      if (!isObject(row)) return '';
-      const meta = row.meta;
-      return isObject(meta) && typeof meta.id === 'string' ? meta.id : '';
-    }
-  } catch {
-    return '';
-  } finally {
-    lines.close();
-    input.destroy();
-  }
-  return '';
-}
-
-/**
-Transcript of the active session, or null when it cannot be found.
-*/
-async function findSessionFile(): Promise<string | null> {
-  if (!currentSessionId || !currentCwd) {
-    log('no transcript fallback: session id or cwd is unknown');
-    return null;
-  }
-  const searched: string[] = [];
-  for (const home of zotHomeCandidates()) {
-    const directory = join(home, 'sessions', sessionDirName(currentCwd));
-    searched.push(directory);
-    let names: string[];
-    try {
-      names = readdirSync(directory)
-        .filter(name => name.endsWith('.jsonl'))
-        .sort();
-    } catch {
-      continue;
-    }
-    for (const name of names) {
-      const path = join(directory, name);
-      if ((await readSessionId(path)) === currentSessionId) return path;
-    }
-  }
-  log(
-    `no transcript for session ${currentSessionId}; looked in ${JSON.stringify(searched)}`,
-  );
-  return null;
-}
-
-/**
-Visible assistant text of one stored message, tool blocks skipped.
-*/
-function messageText(message: unknown): string {
-  if (!isObject(message) || message.role !== 'assistant') return '';
-  const blocks = Array.isArray(message.content) ? message.content : [];
-  const parts: string[] = [];
-  for (const block of blocks) {
-    if (!isObject(block)) continue;
-    if (typeof block.text === 'string' && !('name' in block))
-      parts.push(block.text);
-  }
-  return parts.join('');
-}
-
-/**
-Last non-empty assistant text stored in a session transcript.
-*/
-async function transcriptLastText(path: string): Promise<string> {
-  let last = '';
-  const input = createReadStream(path, { encoding: 'utf8' });
-  const lines = createInterface({ input, crlfDelay: Infinity });
-  try {
-    for await (const raw of lines) {
-      let row: unknown;
-      try {
-        row = JSON.parse(raw);
-      } catch {
-        continue;
-      }
-      if (!isObject(row)) continue;
-      let text = '';
-      if (row.type === 'message') {
-        text = messageText(row.message);
-      } else if (row.type === 'compaction') {
-        const messages = Array.isArray(row.messages) ? row.messages : [];
-        const stored = [...messages].reverse().map(messageText);
-        text = stored.find(item => item.trim()) ?? '';
-      } else {
-        continue;
-      }
-      if (text.trim()) last = text;
-    }
-  } catch (error) {
-    log(`cannot read transcript ${path}: ${errorMessage(error)}`);
-  } finally {
-    lines.close();
-    input.destroy();
-  }
-  return last;
-}
-
-/**
-Message text for /copy, falling back to the session transcript.
-*/
 async function cachedOrStoredText(): Promise<string> {
-  if (lastText.trim()) return lastText;
-  const path = await findSessionFile();
-  return path === null ? '' : transcriptLastText(path);
+  if (state.lastText.trim()) return state.lastText;
+  return lastStoredText({
+    cwd: state.cwd,
+    extensionDirectory: state.extensionDirectory,
+    sessionId: state.sessionId,
+  });
 }
 
 async function handleCommandInvoked(frame: JsonObject): Promise<void> {
   const commandId = textField(frame, 'id');
-  if (frame.name !== 'copy') {
+  if (frame.name !== NAME) {
     respond(commandId, '', `unknown command /${textField(frame, 'name')}`);
     return;
   }
@@ -332,39 +88,40 @@ async function handleCommandInvoked(frame: JsonObject): Promise<void> {
 
 function handleEvent(frame: JsonObject): void {
   const eventName = textField(frame, 'event');
-  currentSessionId = textField(frame, 'session_id') || currentSessionId;
-  currentCwd = textField(frame, 'cwd') || currentCwd;
+  state.sessionId = textField(frame, 'session_id') || state.sessionId;
+  state.cwd = textField(frame, 'cwd') || state.cwd;
   switch (eventName) {
     case 'assistant_message': {
       // The host emits one event per model step; only a final step is an answer.
       const text = textField(frame, 'text');
-      if (text.trim()) stepText = text;
+      if (text.trim()) state.stepText = text;
       break;
     }
     case 'turn_end': {
       // Tool-use steps are narration, not the final response.
-      if (textField(frame, 'stop') !== 'tool_use' && stepText.trim())
-        lastText = stepText;
-      stepText = '';
+      if (textField(frame, 'stop') !== 'tool_use' && state.stepText.trim())
+        state.lastText = state.stepText;
+      state.stepText = '';
       break;
     }
     case 'turn_start': {
       // Keep the previous answer available while a new turn is running.
-      stepText = '';
+      state.stepText = '';
       break;
     }
     case 'session_start':
     case 'session_end': {
-      lastText = '';
-      stepText = '';
+      state.lastText = '';
+      state.stepText = '';
       break;
     }
+    // No default
   }
 }
 
 function handleHelloAck(frame: JsonObject): void {
-  extensionDir = textField(frame, 'extension_dir');
-  currentCwd = textField(frame, 'cwd');
+  state.extensionDirectory = textField(frame, 'extension_dir');
+  state.cwd = textField(frame, 'cwd');
   send({
     type: 'register_command',
     name: NAME,
@@ -372,6 +129,33 @@ function handleHelloAck(frame: JsonObject): void {
   });
   send({ type: 'subscribe', events: SUBSCRIBED_EVENTS });
   send({ type: 'ready' });
+}
+
+/**
+Returns false when the host asks the serve loop to stop.
+*/
+async function shouldContinue(frame: JsonObject): Promise<boolean> {
+  const frameType = textField(frame, 'type');
+  switch (frameType) {
+    case 'hello_ack': {
+      handleHelloAck(frame);
+      break;
+    }
+    case 'command_invoked': {
+      await handleCommandInvoked(frame);
+      break;
+    }
+    case 'event': {
+      handleEvent(frame);
+      break;
+    }
+    case 'shutdown': {
+      send({ type: 'shutdown_ack' });
+      return false;
+    }
+    // No default
+  }
+  return true;
 }
 
 async function serve(): Promise<void> {
@@ -396,24 +180,9 @@ async function serve(): Promise<void> {
       log('malformed frame: not a JSON object');
       continue;
     }
-    switch (textField(frame, 'type')) {
-      case 'hello_ack': {
-        handleHelloAck(frame);
-        break;
-      }
-      case 'command_invoked': {
-        await handleCommandInvoked(frame);
-        break;
-      }
-      case 'event': {
-        handleEvent(frame);
-        break;
-      }
-      case 'shutdown': {
-        send({ type: 'shutdown_ack' });
-        lines.close();
-        return;
-      }
+    if (!(await shouldContinue(frame))) {
+      lines.close();
+      return;
     }
   }
 }

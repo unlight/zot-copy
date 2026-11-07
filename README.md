@@ -89,13 +89,16 @@ and `tsc --noEmit`.
 
 ```text
 zot-copy/
-├── extension.json   # manifest
-├── copy.ts          # extension source, executed by Node
-├── copy.test.ts     # wire-level tests
-├── eslint.config.mjs # lint rules
+├── extension.json      # manifest
+├── copy.ts             # protocol loop and session state, executed by Node
+├── clipboard.ts        # clipboard backends and fallback chain
+├── transcript.ts       # session transcript lookup and text extraction
+├── protocol.ts         # JSON-line plumbing shared by the modules
+├── copy.test.ts        # wire-level tests
+├── eslint.config.mjs   # lint rules
 ├── prettier.config.mjs # formatter settings
-├── package.json     # scripts and dev dependencies
-├── tsconfig.json    # typecheck config, no emit
+├── package.json        # scripts and dev dependencies
+├── tsconfig.json       # typecheck config, no emit
 └── .gitignore
 ```
 
