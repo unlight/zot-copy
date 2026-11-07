@@ -19,7 +19,7 @@ import {
 import type { JsonObject } from './protocol.ts';
 import { lastStoredText } from './transcript.ts';
 
-const VERSION = '1.0.0';
+const VERSION = '1.1.0';
 const CAPABILITIES = ['commands'];
 const SUBSCRIBED_EVENTS = [
   'assistant_message',

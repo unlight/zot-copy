@@ -2315,7 +2315,7 @@ async function lastStoredText(lookup) {
 }
 // src/copy.ts
 /** zot /copy — copy the last agent response to the clipboard or a file. */
-const VERSION = "1.0.0";
+const VERSION = "1.1.0";
 const CAPABILITIES = ["commands"];
 const SUBSCRIBED_EVENTS = [
 	"assistant_message",
