@@ -219,13 +219,16 @@ void test('default file name uses alias and timestamp', () => {
   const now = new Date(2026, 10, 7, 9, 5);
   assert.equal(
     defaultFileName('tidy-birch', 'md', now),
-    'tidy-birch-07-Nov-2026T09:05.md',
+    'tidy-birch-07-Nov-2026-09-05-00.md',
   );
   assert.equal(
     defaultFileName('My Session/1', 'jira', now),
-    'My-Session-1-07-Nov-2026T09:05.jira',
+    'My-Session-1-07-Nov-2026-09-05-00.jira',
   );
-  assert.equal(defaultFileName('', 'md', now), 'zot-copy-07-Nov-2026T09:05.md');
+  assert.equal(
+    defaultFileName('', 'md', now),
+    'zot-copy-07-Nov-2026-09-05-00.md',
+  );
 });
 
 void test('file format writes to the given path', t => {
@@ -301,7 +304,7 @@ void test('file format builds a name from the session alias', t => {
   assert.ok(fileName);
   assert.match(
     fileName,
-    /^tidy-birch-\d{2}-[A-Z][a-z]{2}-\d{4}T\d{2}:\d{2}\.md$/,
+    /^tidy-birch-\d{2}-[A-Z][a-z]{2}-\d{4}-\d{2}-\d{2}-\d{2}\.md$/,
   );
   assert.equal(readFileSync(path.join(f.cwd, fileName), 'utf8'), 'hello');
 });

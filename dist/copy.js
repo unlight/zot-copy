@@ -121,9 +121,9 @@ const MONTHS = [
 	"Nov",
 	"Dec"
 ];
-/** Builds the default `<alias>-dd-mmm-YYYYTHH:mm.<ext>` file name. */
+/** Builds the default `<alias>-dd-mmm-YYYY-HH-mm-ss.<ext>` file name. */
 function defaultFileName(alias, format, now = /* @__PURE__ */ new Date()) {
-	return `${alias.replaceAll(/[^\w.-]+/g, "-").replaceAll(/^-+|-+$/g, "") || FALLBACK_NAME}-${String(now.getDate()).padStart(2, "0")}-${MONTHS[now.getMonth()] ?? "Jan"}-${now.getFullYear()}T${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}${format === "jira" ? ".jira" : ".md"}`;
+	return `${alias.replaceAll(/[^\w.-]+/g, "-").replaceAll(/^-+|-+$/g, "") || FALLBACK_NAME}-${String(now.getDate()).padStart(2, "0")}-${MONTHS[now.getMonth()] ?? "Jan"}-${now.getFullYear()}-${String(now.getHours()).padStart(2, "0")}-${String(now.getMinutes()).padStart(2, "0")}-${String(now.getSeconds()).padStart(2, "0")}${format === "jira" ? ".jira" : ".md"}`;
 }
 // node_modules/marked/lib/marked.esm.js
 /**

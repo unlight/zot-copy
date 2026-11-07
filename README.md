@@ -40,7 +40,7 @@ headings become `h1.`, bold becomes `*bold*`, links become `[text|url]`,
 and fenced code becomes `{code}` blocks.
 
 `/copy file` writes instead of touching the clipboard. Without a path it
-creates `<session alias>-dd-mmm-YYYYTHH:mm.md` in the session working
+creates `<session alias>-dd-mmm-YYYY-HH-mm-ss.md` in the session working
 directory (`.jira` for Jira markup); relative paths resolve against that
 directory.
 

@@ -16,7 +16,7 @@ const MONTHS = [
   'Dec',
 ] as const;
 
-/** Builds the default `<alias>-dd-mmm-YYYYTHH:mm.<ext>` file name. */
+/** Builds the default `<alias>-dd-mmm-YYYY-HH-mm-ss.<ext>` file name. */
 export function defaultFileName(
   alias: string,
   format: string,
@@ -30,6 +30,7 @@ export function defaultFileName(
   const year = now.getFullYear();
   const hours = String(now.getHours()).padStart(2, '0');
   const minutes = String(now.getMinutes()).padStart(2, '0');
+  const seconds = String(now.getSeconds()).padStart(2, '0');
   const extension = format === 'jira' ? '.jira' : '.md';
-  return `${safeAlias}-${day}-${month}-${year}T${hours}:${minutes}${extension}`;
+  return `${safeAlias}-${day}-${month}-${year}-${hours}-${minutes}-${seconds}${extension}`;
 }
