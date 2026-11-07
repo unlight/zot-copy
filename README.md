@@ -87,13 +87,6 @@ The tests drive the real subprocess over stdio and stub the clipboard tool, so
 no zot session and no clipboard access are needed. `npm run lint` runs ESLint
 and `tsc --noEmit`.
 
-## Release
-
-A push to `master` runs semantic-release after the tests pass. It reads the
-conventional commits, bumps the version in `extension.json`, `package.json`
-and `copy.ts`, updates `CHANGELOG.md`, then commits, tags and opens the GitHub
-release. Nothing is published to npm.
-
 ## Requirements
 
 - Node.js 22.18+
