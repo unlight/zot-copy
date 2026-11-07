@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/unlight/zot-copy/actions/workflows/ci.yml/badge.svg)](https://github.com/unlight/zot-copy/actions/workflows/ci.yml)
 
-Copy the last agent response to the system clipboard. A TypeScript
+Copy the last agent response as Markdown or Jira wiki markup. A TypeScript
 extension for zot, running on Node.js.
 
 ## Install
@@ -22,20 +22,25 @@ Restart zot after installing or updating.
 
 ## Usage
 
-Type:
-
 ```text
-/copy
+/copy            # Markdown, copied as-is
+/copy markdown   # same as the default
+/copy md         # alias for markdown
+/copy jira       # Jira wiki markup
 ```
 
-Copies the most recent agent response from the current session to the
-system clipboard and posts a confirmation note back into the chat.
+The format argument is optional and case-insensitive. The default `md`
+assumes the agent already writes Markdown and copies the text untouched.
+`jira` converts it through the vendored `marked` and `marked-jira`:
+headings become `h1.`, bold becomes `*bold*`, links become `[text|url]`,
+and fenced code becomes `{code}` blocks.
 
 ## How it works
 
 - **Runtime** — Node.js 22.18+ executes `copy.ts` directly through its
-  built-in type stripping, so there is no build step and no runtime
-  dependency. `npm run typecheck` checks the types separately.
+  built-in type stripping, so there is no build step and no runtime install.
+  The Markdown converter is vendored under `vendor/`, so `zot ext install`
+  needs no `npm install`. `npm run typecheck` checks the types separately.
 - **Event subscription** — the extension subscribes to `assistant_message`
   and `turn_end`. A response is committed only when its turn ends without
   `stop: "tool_use"`, so intermediate narration is never copied. `turn_start`
@@ -47,6 +52,9 @@ system clipboard and posts a confirmation note back into the chat.
   fallback chain.
 - **Encoding** — frames are JSON lines in UTF-8 and clipboard payloads are
   handed over as UTF-8 regardless of the host locale.
+- **Format conversion** — `/copy jira` renders the stored Markdown with the
+  vendored `marked` and `marked-jira`; `/copy` and `/copy markdown` pass the
+  text through untouched.
 - **Transcript fallback** — a session loaded with `/sessions` replays no
   events, so when the cache is empty `/copy` reads the last assistant message
   from `<state dir>/sessions/<hash of cwd>/*.jsonl` instead of failing.

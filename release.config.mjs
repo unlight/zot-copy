@@ -30,7 +30,13 @@ export default {
     [
       '@semantic-release/git',
       {
-        assets: ['CHANGELOG.md', 'extension.json', 'package.json', 'copy.ts'],
+        assets: [
+          'CHANGELOG.md',
+          'extension.json',
+          'package.json',
+          'package-lock.json',
+          'copy.ts',
+        ],
       },
     ],
     [

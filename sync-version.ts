@@ -20,6 +20,21 @@ function writeJsonVersion(fileName: string, version: string): void {
   writeFileSync(filePath, `${JSON.stringify(updated, undefined, 2)}\n`, 'utf8');
 }
 
+/** Writes the root version into package-lock.json, including its packages entry. */
+function writePackageLockVersion(version: string): void {
+  const fileName = 'package-lock.json';
+  const filePath = path.join(ROOT, fileName);
+  const parsed: unknown = JSON.parse(readFileSync(filePath, 'utf8'));
+  if (!isObject(parsed) || !isObject(parsed.packages)) {
+    throw new Error(`${fileName} has no packages map`);
+  }
+  const root = parsed.packages[''];
+  if (!isObject(root)) throw new Error(`${fileName} has no root package`);
+  const packages = { ...parsed.packages, '': { ...root, version } };
+  const updated = { ...parsed, version, packages };
+  writeFileSync(filePath, `${JSON.stringify(updated, undefined, 2)}\n`, 'utf8');
+}
+
 function writeSourceVersion(version: string): void {
   const filePath = path.join(ROOT, SOURCE_FILE);
   const source = readFileSync(filePath, 'utf8');
@@ -42,6 +57,7 @@ function syncVersion(version: string): void {
     throw new Error(`invalid semantic version: ${JSON.stringify(version)}`);
   }
   for (const fileName of JSON_FILES) writeJsonVersion(fileName, version);
+  writePackageLockVersion(version);
   writeSourceVersion(version);
 }
 

@@ -5,6 +5,7 @@ import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import {
   chmodSync,
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -175,6 +176,53 @@ void test('copies last assistant message', { skip: LINUX_ONLY }, t => {
   assert.equal(readFileSync(f.capture, 'utf8'), 'привет');
 });
 
+void test('jira format converts markdown', { skip: LINUX_ONLY }, t => {
+  const f = makeFixture(t);
+  stubTool(f, 'xclip');
+  const frames = runLines(f, [
+    { type: 'hello_ack' },
+    {
+      type: 'event',
+      event: 'assistant_message',
+      text: '# Title\n\nSome **bold** and [link](https://example.com).',
+    },
+    { type: 'event', event: 'turn_end', stop: 'end_turn' },
+    { type: 'command_invoked', id: 'c1', name: 'copy', args: 'jira' },
+  ]);
+  assert.ok(displayed(firstResponse(frames)).startsWith('Copied the last'));
+  assert.equal(
+    readFileSync(f.capture, 'utf8'),
+    'h1. Title\n\nSome *bold* and [link|https://example.com].',
+  );
+});
+
+void test('markdown format keeps the source text', { skip: LINUX_ONLY }, t => {
+  const f = makeFixture(t);
+  stubTool(f, 'xclip');
+  const text = '# Title\n\n**bold**';
+  runLines(f, [
+    { type: 'hello_ack' },
+    { type: 'event', event: 'assistant_message', text },
+    { type: 'event', event: 'turn_end', stop: 'end_turn' },
+    { type: 'command_invoked', id: 'c1', name: 'copy', args: ' Markdown ' },
+  ]);
+  assert.equal(readFileSync(f.capture, 'utf8'), text);
+});
+
+void test('unknown format is rejected', t => {
+  const f = makeFixture(t);
+  const frames = runLines(f, [
+    { type: 'hello_ack' },
+    { type: 'event', event: 'assistant_message', text: 'text' },
+    { type: 'event', event: 'turn_end', stop: 'end_turn' },
+    { type: 'command_invoked', id: 'c1', name: 'copy', args: 'pdf' },
+  ]);
+  const response = firstResponse(frames);
+  assert.match(String(response.error), /Unknown format "pdf"/);
+  assert.match(String(response.error), /Usage: \/copy/);
+  assert.ok(!existsSync(f.capture));
+});
+
 void test('clipboard failure sends only error', { skip: LINUX_ONLY }, t => {
   const f = makeFixture(t);
   stubTool(f, 'xclip', 1);
@@ -317,4 +365,16 @@ void test('metadata versions match the source constant', () => {
     const parsed = JSON.parse(raw) as { version?: string };
     assert.equal(parsed.version, sourceVersion, `${fileName} version`);
   }
+  const lockfile = JSON.parse(
+    readFileSync(path.join(directory, 'package-lock.json'), 'utf8'),
+  ) as {
+    version?: string;
+    packages?: Record<string, { version?: string }>;
+  };
+  assert.equal(lockfile.version, sourceVersion, 'package-lock.json version');
+  assert.equal(
+    lockfile.packages?.['']?.version,
+    sourceVersion,
+    'package-lock.json root version',
+  );
 });

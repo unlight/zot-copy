@@ -4,6 +4,7 @@
 import { createInterface } from 'node:readline';
 
 import { copyToClipboard } from './clipboard.ts';
+import { DEFAULT_FORMAT, isSupportedFormat, toJira } from './format.ts';
 import {
   errorMessage,
   isObject,
@@ -69,6 +70,16 @@ async function handleCommandInvoked(frame: JsonObject): Promise<void> {
     respond(commandId, '', `unknown command /${textField(frame, 'name')}`);
     return;
   }
+  const format =
+    textField(frame, 'args').trim().toLowerCase() || DEFAULT_FORMAT;
+  if (!isSupportedFormat(format)) {
+    respond(
+      commandId,
+      '',
+      `Unknown format "${format}". Usage: /copy [md|jira].`,
+    );
+    return;
+  }
   const text = await cachedOrStoredText();
   if (!text.trim()) {
     respond(
@@ -77,7 +88,8 @@ async function handleCommandInvoked(frame: JsonObject): Promise<void> {
     );
     return;
   }
-  const result = await copyToClipboard(text);
+  const payload = format === 'jira' ? toJira(text) : text;
+  const result = await copyToClipboard(payload);
   if (!result.ok) {
     respond(commandId, '', result.reason);
     return;
@@ -124,7 +136,7 @@ function handleHelloAck(frame: JsonObject): void {
   send({
     type: 'register_command',
     name: NAME,
-    description: 'copy the last agent response to the clipboard',
+    description: 'copy the last agent response (Markdown or Jira markup)',
   });
   send({ type: 'subscribe', events: SUBSCRIBED_EVENTS });
   send({ type: 'ready' });

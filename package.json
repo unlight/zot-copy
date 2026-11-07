@@ -46,6 +46,8 @@
     "eslint-plugin-prettier": "^5.5.7",
     "eslint-plugin-unicorn": "^79.0.0",
     "globals": "^17.14.0",
+    "marked": "15.0.12",
+    "marked-jira": "1.0.1",
     "prettier": "^3.9.10",
     "semantic-release": "^25.0.9",
     "typescript": "^6.0.3",
