@@ -8,7 +8,6 @@ extension for zot, running on Node.js.
 ## Install
 
 ```bash
-chmod +x copy.ts
 zot ext install https://github.com/unlight/zot-copy
 ```
 
@@ -17,6 +16,9 @@ Or run ad-hoc:
 ```bash
 zot --ext ./zot-copy
 ```
+
+The repository ships the built `dist/copy.js`, so installing needs no build
+step and no `npm install`.
 
 Restart zot after installing or updating.
 
@@ -31,16 +33,16 @@ Restart zot after installing or updating.
 
 The format argument is optional and case-insensitive. The default `md`
 assumes the agent already writes Markdown and copies the text untouched.
-`jira` converts it through the vendored `marked` and `marked-jira`:
+`jira` converts it through `marked` and `marked-jira`:
 headings become `h1.`, bold becomes `*bold*`, links become `[text|url]`,
 and fenced code becomes `{code}` blocks.
 
 ## How it works
 
-- **Runtime** — Node.js 22.18+ executes `copy.ts` directly through its
-  built-in type stripping, so there is no build step and no runtime install.
-  The Markdown converter is vendored under `vendor/`, so `zot ext install`
-  needs no `npm install`. `npm run typecheck` checks the types separately.
+- **Runtime** — zot executes the committed `dist/copy.js`, an ESM bundle built
+  by tsdown from `src/`. Node.js 22.18+ runs it directly; `marked` and
+  `marked-jira` are bundled into the artifact, so no `npm install` happens at
+  install time. `npm run typecheck` checks the types separately.
 - **Event subscription** — the extension subscribes to `assistant_message`
   and `turn_end`. A response is committed only when its turn ends without
   `stop: "tool_use"`, so intermediate narration is never copied. `turn_start`
@@ -52,9 +54,9 @@ and fenced code becomes `{code}` blocks.
   fallback chain.
 - **Encoding** — frames are JSON lines in UTF-8 and clipboard payloads are
   handed over as UTF-8 regardless of the host locale.
-- **Format conversion** — `/copy jira` renders the stored Markdown with the
-  vendored `marked` and `marked-jira`; `/copy` and `/copy markdown` pass the
-  text through untouched.
+- **Format conversion** — `/copy jira` renders the stored Markdown with
+  `marked` and `marked-jira`; `/copy` and `/copy markdown` pass the text
+  through untouched.
 - **Transcript fallback** — a session loaded with `/sessions` replays no
   events, so when the cache is empty `/copy` reads the last assistant message
   from `<state dir>/sessions/<hash of cwd>/*.jsonl` instead of failing.
@@ -91,9 +93,11 @@ npm test
 npm run format:check
 ```
 
-The tests drive the real subprocess over stdio and stub the clipboard tool, so
-no zot session and no clipboard access are needed. `npm run lint` runs ESLint
-and `tsc --noEmit`.
+`npm test` rebuilds `dist/copy.js` with tsdown and runs the wire tests against
+that bundle. Commit the rebuilt bundle with any source change: zot never runs
+`npm install` or a build step after cloning or pulling. The tests drive the
+real subprocess over stdio and stub the clipboard tool, so no zot session and
+no clipboard access are needed. `npm run lint` runs ESLint and `tsc --noEmit`.
 
 ## Requirements
 

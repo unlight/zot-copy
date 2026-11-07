@@ -1,4 +1,4 @@
-/** Wire-level tests for copy.ts: real subprocess, fake clipboard tools. */
+/** Wire-level tests for the extension: real subprocess, fake clipboard tools. */
 
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
@@ -20,7 +20,8 @@ import { fileURLToPath } from 'node:url';
 
 type JsonObject = Record<string, unknown>;
 
-const SCRIPT = fileURLToPath(new URL('copy.ts', import.meta.url));
+const SCRIPT = fileURLToPath(new URL('../dist/copy.js', import.meta.url));
+const ROOT = path.resolve(path.dirname(SCRIPT), '..');
 const CAPTURED = 'captured.txt';
 const LINUX_ONLY =
   process.platform === 'linux' ? false : 'clipboard stubs are Linux-only';
@@ -356,17 +357,16 @@ void test('unknown session stays empty', t => {
 });
 
 void test('metadata versions match the source constant', () => {
-  const directory = path.dirname(SCRIPT);
-  const source = readFileSync(SCRIPT, 'utf8');
+  const source = readFileSync(path.join(ROOT, 'src/copy.ts'), 'utf8');
   const sourceVersion = /^const VERSION = '([^']+)';$/m.exec(source)?.[1];
   assert.ok(sourceVersion);
   for (const fileName of ['extension.json', 'package.json']) {
-    const raw = readFileSync(path.join(directory, fileName), 'utf8');
+    const raw = readFileSync(path.join(ROOT, fileName), 'utf8');
     const parsed = JSON.parse(raw) as { version?: string };
     assert.equal(parsed.version, sourceVersion, `${fileName} version`);
   }
   const lockfile = JSON.parse(
-    readFileSync(path.join(directory, 'package-lock.json'), 'utf8'),
+    readFileSync(path.join(ROOT, 'package-lock.json'), 'utf8'),
   ) as {
     version?: string;
     packages?: Record<string, { version?: string }>;

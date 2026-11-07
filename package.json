@@ -23,13 +23,18 @@
     "node": ">=22.18"
   },
   "scripts": {
-    "test": "node --test copy.test.ts",
+    "build": "tsdown && chmod +x dist/copy.js",
+    "test": "npm run build && node --test src/copy.test.ts",
     "typecheck": "tsc --noEmit",
-    "eslint": "eslint '*.ts'",
+    "eslint": "eslint 'src/**/*.ts'",
     "eslint:fix": "npm run eslint -- --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "npm run eslint && npm run typecheck"
+  },
+  "dependencies": {
+    "marked": "15.0.12",
+    "marked-jira": "1.0.1"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -46,10 +51,9 @@
     "eslint-plugin-prettier": "^5.5.7",
     "eslint-plugin-unicorn": "^79.0.0",
     "globals": "^17.14.0",
-    "marked": "15.0.12",
-    "marked-jira": "1.0.1",
     "prettier": "^3.9.10",
     "semantic-release": "^25.0.9",
+    "tsdown": "^0.23.7",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.72.1"
   }

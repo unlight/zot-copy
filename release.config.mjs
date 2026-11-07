@@ -24,7 +24,8 @@ export default {
       '@semantic-release/exec',
       {
         // Runs before the release commit, so the tag carries the new version.
-        prepareCmd: 'node sync-version.ts ${nextRelease.version}',
+        prepareCmd:
+          'node src/sync-version.ts ${nextRelease.version} && npm run build',
       },
     ],
     [
@@ -35,7 +36,8 @@ export default {
           'extension.json',
           'package.json',
           'package-lock.json',
-          'copy.ts',
+          'src/copy.ts',
+          'dist/copy.js',
         ],
       },
     ],

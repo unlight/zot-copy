@@ -1,7 +1,7 @@
 /** Markdown formats supported by the /copy command. */
 
-import markedJira from './vendor/marked-jira.js';
-import { Marked } from './vendor/marked.js';
+import { Marked } from 'marked';
+import markedJira from 'marked-jira';
 
 export const DEFAULT_FORMAT = 'md';
 
@@ -18,5 +18,5 @@ export function isSupportedFormat(format: string): boolean {
 
 /** Converts Markdown into Jira wiki markup. */
 export function toJira(markdown: string): string {
-  return jiraParser.parse(markdown).trimEnd();
+  return jiraParser.parse(markdown, { async: false }).trimEnd();
 }

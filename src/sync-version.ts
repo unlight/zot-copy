@@ -5,9 +5,9 @@ import path from 'node:path';
 
 import { isObject } from './protocol.ts';
 
-const ROOT = import.meta.dirname;
+const ROOT = path.join(import.meta.dirname, '..');
 const JSON_FILES = ['extension.json', 'package.json'];
-const SOURCE_FILE = 'copy.ts';
+const SOURCE_FILE = 'src/copy.ts';
 const VERSION_PATTERN =
   /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
 const COPY_VERSION = /^const VERSION = '[^']*';$/gm;

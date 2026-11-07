@@ -1,7 +1,7 @@
 {
   "name": "copy",
   "version": "1.0.0",
-  "exec": "./copy.ts",
+  "exec": "./dist/copy.js",
   "language": "typescript",
   "description": "copy the last agent response as Markdown or Jira markup",
   "enabled": true

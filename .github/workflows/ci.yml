@@ -40,6 +40,9 @@ jobs:
       - name: 'Test'
         run: npm test
 
+      - name: 'Check the committed bundle'
+        run: git diff --exit-code -- dist/copy.js
+
   release:
     name: 'Changelog, tag, release'
     # needs: every matrix entry passed; the ref guard keeps pull requests out.
