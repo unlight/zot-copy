@@ -314,3 +314,15 @@ void test('unknown session stays empty', t => {
   ]);
   assert.ok(displayed(firstResponse(frames)).startsWith('Nothing to copy yet'));
 });
+
+void test('metadata versions match the source constant', () => {
+  const directory = path.dirname(SCRIPT);
+  const source = readFileSync(SCRIPT, 'utf8');
+  const sourceVersion = /^const VERSION = '([^']+)';$/m.exec(source)?.[1];
+  assert.ok(sourceVersion);
+  for (const fileName of ['extension.json', 'package.json']) {
+    const raw = readFileSync(path.join(directory, fileName), 'utf8');
+    const parsed = JSON.parse(raw) as { version?: string };
+    assert.equal(parsed.version, sourceVersion, `${fileName} version`);
+  }
+});
