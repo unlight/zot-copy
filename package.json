@@ -1,0 +1,18 @@
+{
+  "name": "zot-copy",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "zot /copy — copy the last agent response to the system clipboard",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "test": "node --test copy.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "typescript": "^7.0.2"
+  }
+}

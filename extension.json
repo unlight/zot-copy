@@ -1,0 +1,8 @@
+{
+  "name": "copy",
+  "version": "1.0.0",
+  "exec": "./copy.ts",
+  "language": "typescript",
+  "description": "copy the last agent response to the system clipboard",
+  "enabled": true
+}
