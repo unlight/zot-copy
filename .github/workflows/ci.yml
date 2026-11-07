@@ -1,0 +1,79 @@
+name: CI
+
+on:
+  - push
+  - pull_request
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: 'Lint and test (Node ${{ matrix.node-version }})'
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        # 22.18 is the first release that strips TypeScript types by default.
+        node-version: ['22.18.0', '24', '26']
+    steps:
+      - name: 'Checkout Repository'
+        uses: actions/checkout@v6
+        with:
+          # Read-only job: keep GITHUB_TOKEN out of .git/config.
+          persist-credentials: false
+
+      - name: 'Setup Node'
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: 'Install Dependencies'
+        run: npm install
+
+      - name: 'Lint'
+        run: npm run lint
+
+      - name: 'Check formatting'
+        run: npm run format:check
+
+      - name: 'Test'
+        run: npm test
+
+  release:
+    name: 'Changelog, tag, release'
+    # needs: every matrix entry passed; the ref guard keeps pull requests out.
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    permissions:
+      # Overrides the read-only default: @semantic-release/git pushes the
+      # changelog commit and the tag, @semantic-release/github opens the release.
+      contents: write
+      issues: write
+      pull-requests: write
+    steps:
+      - name: 'Checkout Repository'
+        uses: actions/checkout@v6
+        with:
+          # semantic-release needs the full history and the existing tags.
+          fetch-depth: 0
+
+      - name: 'Setup Node'
+        uses: actions/setup-node@v6
+        with:
+          node-version: 26
+
+      - name: 'Install Dependencies'
+        run: npm install
+
+      - name: 'Set git identity'
+        # @semantic-release/git runs a bare git commit; the runner has no identity.
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: 'Release'
+        run: npx semantic-release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
