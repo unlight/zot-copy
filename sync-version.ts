@@ -1,6 +1,4 @@
-/**
-Write the release version into the manifest, package metadata and source.
-*/
+/** Write the release version into the manifest, package metadata and source. */
 
 import { readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';

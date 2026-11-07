@@ -22,6 +22,9 @@ export default tseslint.config(
     rules: {
       'max-lines': ['warn', { max: 400 }],
       'max-params': ['warn', { max: 3 }],
+      // Short JSDoc stays on one line; asterisk prefixes are allowed.
+      'unicorn/no-asterisk-prefix-in-documentation-comments': 'off',
+      'unicorn/single-line-block-comment-style': 'off',
     },
   },
   {

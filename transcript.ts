@@ -1,6 +1,4 @@
-/**
-Session transcript lookup and assistant-text extraction.
-*/
+/** Session transcript lookup and assistant-text extraction. */
 
 import { createHash } from 'node:crypto';
 import { createReadStream, readdirSync } from 'node:fs';
@@ -18,6 +16,7 @@ export interface SessionLookup {
 
 const IS_MACOS = process.platform === 'darwin';
 
+/** Guess zot's state directory; the host never reveals it directly. */
 function zotHomeCandidates(extensionDirectory: string): string[] {
   const homes: string[] = [];
   if (process.env.ZOT_HOME) homes.push(process.env.ZOT_HOME);
@@ -45,6 +44,7 @@ function sessionDirectoryName(cwd: string): string {
   return createHash('sha256').update(cwd, 'utf8').digest('hex').slice(0, 16);
 }
 
+/** Session id recorded in the meta line of a transcript. */
 async function readSessionId(filePath: string): Promise<string> {
   const input = createReadStream(filePath, { encoding: 'utf8' });
   const lines = createInterface({ input, crlfDelay: Infinity });
@@ -64,6 +64,7 @@ async function readSessionId(filePath: string): Promise<string> {
   return '';
 }
 
+/** Transcript of the active session, or undefined when it cannot be found. */
 async function findSessionFile(
   lookup: SessionLookup,
 ): Promise<string | undefined> {
@@ -96,6 +97,7 @@ async function findSessionFile(
   return undefined;
 }
 
+/** Visible assistant text of one stored message, tool blocks skipped. */
 function messageText(message: unknown): string {
   if (!isObject(message) || message.role !== 'assistant') return '';
   const blocks = Array.isArray(message.content) ? message.content : [];
@@ -108,6 +110,7 @@ function messageText(message: unknown): string {
   return parts.join('');
 }
 
+/** Last non-empty assistant text stored in a session transcript. */
 async function transcriptLastText(filePath: string): Promise<string> {
   let last = '';
   const input = createReadStream(filePath, { encoding: 'utf8' });
@@ -146,9 +149,6 @@ async function transcriptLastText(filePath: string): Promise<string> {
   return last;
 }
 
-/**
-Last non-empty assistant text stored in the active session transcript.
-*/
 export async function lastStoredText(lookup: SessionLookup): Promise<string> {
   const filePath = await findSessionFile(lookup);
   return filePath ? transcriptLastText(filePath) : '';

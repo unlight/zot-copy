@@ -1,6 +1,4 @@
-/**
-Shared JSON-line plumbing for the zot extension protocol.
-*/
+/** Shared JSON-line plumbing for the zot extension protocol. */
 
 export type JsonObject = Record<string, unknown>;
 

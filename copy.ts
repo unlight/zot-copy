@@ -1,7 +1,5 @@
 #!/usr/bin/env node
-/**
-zot /copy — copy the last agent response to the system clipboard.
-*/
+/** zot /copy — copy the last agent response to the system clipboard. */
 
 import { createInterface } from 'node:readline';
 
@@ -55,6 +53,7 @@ function respond(commandId: string, display = '', error = ''): void {
   send(frame);
 }
 
+/** Message text for /copy, falling back to the session transcript. */
 async function cachedOrStoredText(): Promise<string> {
   if (state.lastText.trim()) return state.lastText;
   return lastStoredText({
@@ -131,9 +130,7 @@ function handleHelloAck(frame: JsonObject): void {
   send({ type: 'ready' });
 }
 
-/**
-Returns false when the host asks the serve loop to stop.
-*/
+/** Returns false when the host asks the serve loop to stop. */
 async function shouldContinue(frame: JsonObject): Promise<boolean> {
   const frameType = textField(frame, 'type');
   switch (frameType) {

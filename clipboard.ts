@@ -1,6 +1,4 @@
-/**
-Clipboard backends and the ordered fallback chain.
-*/
+/** Clipboard backends and the ordered fallback chain. */
 
 import { spawn } from 'node:child_process';
 

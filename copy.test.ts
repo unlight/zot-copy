@@ -1,6 +1,4 @@
-/**
-Wire-level tests for copy.ts: real subprocess, fake clipboard tools.
-*/
+/** Wire-level tests for copy.ts: real subprocess, fake clipboard tools. */
 
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
@@ -52,9 +50,7 @@ function makeFixture(t: TestContext): Fixture {
   };
 }
 
-/**
-Feed frames to the extension and return its stdout lines as frames.
-*/
+/** Feed frames to the extension and return its stdout lines as frames. */
 function runExtension(
   lines: unknown[],
   bin: string,
@@ -109,9 +105,7 @@ function helloAck(f: Fixture): JsonObject {
   };
 }
 
-/**
-Lay out a transcript the way zot does: sessions/<sha256(cwd)[:16]>.
-*/
+/** Lay out a transcript the way zot does: sessions/<sha256(cwd)[:16]>. */
 function writeSession(
   f: Fixture,
   sessionId: string,
@@ -136,9 +130,7 @@ function writeSession(
   return filePath;
 }
 
-/**
-Install a fake clipboard tool that captures stdin and exits with code.
-*/
+/** Install a fake clipboard tool that captures stdin and exits with code. */
 function stubTool(f: Fixture, name: string, exitCode = 0): string {
   const script = path.join(f.bin, name);
   writeFileSync(
