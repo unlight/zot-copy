@@ -1,5 +1,7 @@
 # zot-copy
 
+[![CI](https://github.com/unlight/zot-copy/actions/workflows/ci.yml/badge.svg)](https://github.com/unlight/zot-copy/actions/workflows/ci.yml)
+
 Copy the last agent response to the system clipboard. A TypeScript
 extension for zot, running on Node.js.
 
@@ -85,6 +87,13 @@ The tests drive the real subprocess over stdio and stub the clipboard tool, so
 no zot session and no clipboard access are needed. `npm run lint` runs ESLint
 and `tsc --noEmit`.
 
+## Release
+
+A push to `master` runs semantic-release after the tests pass. It reads the
+conventional commits, bumps the version in `extension.json`, `package.json`
+and `copy.ts`, updates `CHANGELOG.md`, then commits, tags and opens the GitHub
+release. Nothing is published to npm.
+
 ## Structure
 
 ```text
@@ -94,11 +103,14 @@ zot-copy/
 ├── clipboard.ts        # clipboard backends and fallback chain
 ├── transcript.ts       # session transcript lookup and text extraction
 ├── protocol.ts         # JSON-line plumbing shared by the modules
+├── sync-version.ts     # release version sync
 ├── copy.test.ts        # wire-level tests
 ├── eslint.config.mjs   # lint rules
 ├── prettier.config.mjs # formatter settings
+├── release.config.mjs  # semantic-release setup
 ├── package.json        # scripts and dev dependencies
 ├── tsconfig.json       # typecheck config, no emit
+├── .github/workflows/ci.yml # lint, tests and release
 └── .gitignore
 ```
 
