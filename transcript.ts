@@ -70,7 +70,7 @@ async function findSessionFile(
 ): Promise<string | undefined> {
   if (!lookup.sessionId || !lookup.cwd) {
     log('no transcript fallback: session id or cwd is unknown');
-    return undefined;
+    return;
   }
   const searched: string[] = [];
   for (const home of zotHomeCandidates(lookup.extensionDirectory)) {
@@ -94,7 +94,6 @@ async function findSessionFile(
   log(
     `no transcript for session ${lookup.sessionId}; looked in ${JSON.stringify(searched)}`,
   );
-  return undefined;
 }
 
 /** Visible assistant text of one stored message, tool blocks skipped. */
