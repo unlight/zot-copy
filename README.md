@@ -7,7 +7,7 @@ extension for zot, running on Node.js.
 
 ```bash
 chmod +x copy.ts
-zot ext install ./zot-copy
+zot ext install https://github.com/unlight/zot-copy
 ```
 
 Or run ad-hoc:
@@ -76,12 +76,14 @@ system clipboard and posts a confirmation note back into the chat.
 
 ```bash
 npm install
+npm run lint
 npm test
-npm run typecheck
+npm run format:check
 ```
 
 The tests drive the real subprocess over stdio and stub the clipboard tool, so
-no zot session and no clipboard access are needed.
+no zot session and no clipboard access are needed. `npm run lint` runs ESLint
+and `tsc --noEmit`.
 
 ## Structure
 
@@ -90,6 +92,8 @@ zot-copy/
 ├── extension.json   # manifest
 ├── copy.ts          # extension source, executed by Node
 ├── copy.test.ts     # wire-level tests
+├── eslint.config.mjs # lint rules
+├── prettier.config.mjs # formatter settings
 ├── package.json     # scripts and dev dependencies
 ├── tsconfig.json    # typecheck config, no emit
 └── .gitignore

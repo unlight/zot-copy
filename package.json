@@ -2,17 +2,45 @@
   "name": "zot-copy",
   "version": "1.0.0",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "description": "zot /copy — copy the last agent response to the system clipboard",
+  "keywords": [
+    "zot",
+    "zot-extension",
+    "clipboard",
+    "slash-command"
+  ],
+  "homepage": "https://github.com/unlight/zot-copy#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/unlight/zot-copy.git"
+  },
+  "bugs": {
+    "url": "https://github.com/unlight/zot-copy/issues"
+  },
   "engines": {
     "node": ">=22.18"
   },
   "scripts": {
     "test": "node --test copy.test.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "eslint": "eslint copy.ts copy.test.ts",
+    "eslint:fix": "npm run eslint -- --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "npm run eslint && npm run typecheck"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/node": "^26.6.6",
-    "typescript": "^7.0.2"
+    "eslint": "^10.14.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.7",
+    "eslint-plugin-unicorn": "^79.0.0",
+    "globals": "^17.14.0",
+    "prettier": "^3.9.10",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.72.1"
   }
 }
