@@ -3,6 +3,6 @@
   "version": "1.0.0",
   "exec": "./dist/copy.js",
   "language": "typescript",
-  "description": "copy the last agent response as Markdown or Jira markup",
+  "description": "copy the last agent response to the clipboard or a file",
   "enabled": true
 }

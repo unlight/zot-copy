@@ -9,6 +9,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  readdirSync,
   rmSync,
   writeFileSync,
 } from 'node:fs';
@@ -17,6 +18,8 @@ import path from 'node:path';
 import { test } from 'node:test';
 import type { TestContext } from 'node:test';
 import { fileURLToPath } from 'node:url';
+
+import { defaultFileName } from './filename.ts';
 
 type JsonObject = Record<string, unknown>;
 
@@ -42,12 +45,14 @@ function makeFixture(t: TestContext): Fixture {
   t.after(() => rmSync(base, { recursive: true, force: true }));
   const bin = path.join(base, 'bin');
   const home = path.join(base, 'zot-home');
+  const cwd = path.join(base, 'work');
   mkdirSync(bin);
   mkdirSync(home);
+  mkdirSync(cwd);
   return {
     bin,
     home,
-    cwd: '/work/demo',
+    cwd,
     capture: path.join(base, CAPTURED),
   };
 }
@@ -208,6 +213,115 @@ void test('markdown format keeps the source text', { skip: LINUX_ONLY }, t => {
     { type: 'command_invoked', id: 'c1', name: 'copy', args: ' Markdown ' },
   ]);
   assert.equal(readFileSync(f.capture, 'utf8'), text);
+});
+
+void test('default file name uses alias and timestamp', () => {
+  const now = new Date(2026, 10, 7, 9, 5);
+  assert.equal(
+    defaultFileName('tidy-birch', 'md', now),
+    'tidy-birch-07-Nov-2026T09:05.md',
+  );
+  assert.equal(
+    defaultFileName('My Session/1', 'jira', now),
+    'My-Session-1-07-Nov-2026T09:05.jira',
+  );
+  assert.equal(defaultFileName('', 'md', now), 'zot-copy-07-Nov-2026T09:05.md');
+});
+
+void test('file format writes to the given path', t => {
+  const f = makeFixture(t);
+  const frames = runLines(f, [
+    helloAck(f),
+    { type: 'event', event: 'assistant_message', text: '# Title\n\n**bold**' },
+    { type: 'event', event: 'turn_end', stop: 'end_turn' },
+    {
+      type: 'command_invoked',
+      id: 'c1',
+      name: 'copy',
+      args: 'file note one.md',
+    },
+  ]);
+  assert.match(
+    displayed(firstResponse(frames)),
+    /^Wrote the last agent response/,
+  );
+  assert.equal(
+    readFileSync(path.join(f.cwd, 'note one.md'), 'utf8'),
+    '# Title\n\n**bold**',
+  );
+});
+
+void test('jira file format writes Jira markup', t => {
+  const f = makeFixture(t);
+  const frames = runLines(f, [
+    helloAck(f),
+    {
+      type: 'event',
+      event: 'assistant_message',
+      text: '# Title\n\nSome **bold** and [link](https://example.com).',
+    },
+    { type: 'event', event: 'turn_end', stop: 'end_turn' },
+    {
+      type: 'command_invoked',
+      id: 'c1',
+      name: 'copy',
+      args: 'jira file out.txt',
+    },
+  ]);
+  assert.match(
+    displayed(firstResponse(frames)),
+    /^Wrote the last agent response/,
+  );
+  assert.equal(
+    readFileSync(path.join(f.cwd, 'out.txt'), 'utf8'),
+    'h1. Title\n\nSome *bold* and [link|https://example.com].',
+  );
+});
+
+void test('file format builds a name from the session alias', t => {
+  const f = makeFixture(t);
+  const frames = runLines(f, [
+    helloAck(f),
+    {
+      type: 'event',
+      event: 'session_start',
+      session_id: 'sess-1',
+      session_alias: 'tidy-birch',
+      cwd: f.cwd,
+    },
+    { type: 'event', event: 'assistant_message', text: 'hello' },
+    { type: 'event', event: 'turn_end', stop: 'end_turn' },
+    { type: 'command_invoked', id: 'c1', name: 'copy', args: 'file' },
+  ]);
+  assert.match(
+    displayed(firstResponse(frames)),
+    /^Wrote the last agent response/,
+  );
+  const [fileName] = readdirSync(f.cwd);
+  assert.ok(fileName);
+  assert.match(
+    fileName,
+    /^tidy-birch-\d{2}-[A-Z][a-z]{2}-\d{4}T\d{2}:\d{2}\.md$/,
+  );
+  assert.equal(readFileSync(path.join(f.cwd, fileName), 'utf8'), 'hello');
+});
+
+void test('file format reports write failures', t => {
+  const f = makeFixture(t);
+  const frames = runLines(f, [
+    helloAck(f),
+    { type: 'event', event: 'assistant_message', text: 'hello' },
+    { type: 'event', event: 'turn_end', stop: 'end_turn' },
+    {
+      type: 'command_invoked',
+      id: 'c1',
+      name: 'copy',
+      args: 'file missing/note.md',
+    },
+  ]);
+  const response = firstResponse(frames);
+  assert.match(String(response.error), /^Could not write /);
+  assert.match(String(response.error), /ENOENT/);
 });
 
 void test('unknown format is rejected', t => {

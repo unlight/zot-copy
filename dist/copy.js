@@ -1,10 +1,10 @@
 #!/usr/bin/env node
+import { createReadStream, readdirSync, writeFileSync } from "node:fs";
+import path from "node:path";
 import { createInterface } from "node:readline";
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import { createReadStream, readdirSync } from "node:fs";
 import { homedir } from "node:os";
-import path from "node:path";
 // src/protocol.ts
 const NAME = "copy";
 function send(frame) {
@@ -103,6 +103,27 @@ async function copyToClipboard(text) {
 		ok: false,
 		reason: `clipboard failed: ${failures.join("; ")}`
 	};
+}
+// src/filename.ts
+/** Default file names for `/copy file`. */
+const FALLBACK_NAME = "zot-copy";
+const MONTHS = [
+	"Jan",
+	"Feb",
+	"Mar",
+	"Apr",
+	"May",
+	"Jun",
+	"Jul",
+	"Aug",
+	"Sep",
+	"Oct",
+	"Nov",
+	"Dec"
+];
+/** Builds the default `<alias>-dd-mmm-YYYYTHH:mm.<ext>` file name. */
+function defaultFileName(alias, format, now = /* @__PURE__ */ new Date()) {
+	return `${alias.replaceAll(/[^\w.-]+/g, "-").replaceAll(/^-+|-+$/g, "") || FALLBACK_NAME}-${String(now.getDate()).padStart(2, "0")}-${MONTHS[now.getMonth()] ?? "Jan"}-${now.getFullYear()}T${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}${format === "jira" ? ".jira" : ".md"}`;
 }
 // node_modules/marked/lib/marked.esm.js
 /**
@@ -2293,7 +2314,7 @@ async function lastStoredText(lookup) {
 	return filePath ? transcriptLastText(filePath) : "";
 }
 // src/copy.ts
-/** zot /copy — copy the last agent response to the system clipboard. */
+/** zot /copy — copy the last agent response to the clipboard or a file. */
 const VERSION = "1.0.0";
 const CAPABILITIES = ["commands"];
 const SUBSCRIBED_EVENTS = [
@@ -2307,6 +2328,7 @@ const state = {
 	cwd: "",
 	extensionDirectory: "",
 	lastText: "",
+	sessionAlias: "",
 	sessionId: "",
 	stepText: ""
 };
@@ -2331,15 +2353,53 @@ async function cachedOrStoredText() {
 		sessionId: state.sessionId
 	});
 }
+/** Parses `/copy` arguments; returns an error message for unknown input. */
+function parseCopyRequest(rawInput) {
+	const input = rawInput.trim();
+	if (!input) return {
+		file: false,
+		filePath: "",
+		format: "md"
+	};
+	const spaceIndex = input.search(/\s/);
+	const head = (spaceIndex === -1 ? input : input.slice(0, spaceIndex)).toLowerCase();
+	const tail = spaceIndex === -1 ? "" : input.slice(spaceIndex + 1).trim();
+	if (head === "file") return {
+		file: true,
+		filePath: tail,
+		format: "md"
+	};
+	if (!isSupportedFormat(head)) return `Unknown format "${head}". Usage: /copy [md|jira] [file [path]].`;
+	if (!tail) return {
+		file: false,
+		filePath: "",
+		format: head
+	};
+	const fileMatch = /^file(?:\s+([\s\S]*))?$/i.exec(tail);
+	return fileMatch ? {
+		file: true,
+		filePath: fileMatch[1]?.trim() ?? "",
+		format: head
+	} : `Unknown arguments "${input}". Usage: /copy [md|jira] [file [path]].`;
+}
+/** Writes the payload and returns an error message, or undefined on success. */
+function writePayload(filePath, payload) {
+	try {
+		writeFileSync(filePath, payload, "utf8");
+		return;
+	} catch (error) {
+		return `Could not write ${filePath}: ${errorMessage(error)}`;
+	}
+}
 async function handleCommandInvoked(frame) {
 	const commandId = textField(frame, "id");
 	if (frame.name !== "copy") {
 		respond(commandId, "", `unknown command /${textField(frame, "name")}`);
 		return;
 	}
-	const format = textField(frame, "args").trim().toLowerCase() || "md";
-	if (!isSupportedFormat(format)) {
-		respond(commandId, "", `Unknown format "${format}". Usage: /copy [md|jira].`);
+	const request = parseCopyRequest(textField(frame, "args"));
+	if (typeof request === "string") {
+		respond(commandId, "", request);
 		return;
 	}
 	const text = await cachedOrStoredText();
@@ -2347,7 +2407,19 @@ async function handleCommandInvoked(frame) {
 		respond(commandId, "Nothing to copy yet — no agent response in this session.");
 		return;
 	}
-	const result = await copyToClipboard(format === "jira" ? toJira(text) : text);
+	const payload = request.format === "jira" ? toJira(text) : text;
+	if (request.file) {
+		const target = request.filePath || defaultFileName(state.sessionAlias, request.format);
+		const filePath = path.resolve(state.cwd || process.cwd(), target);
+		const writeError = writePayload(filePath, payload);
+		if (writeError) {
+			respond(commandId, "", writeError);
+			return;
+		}
+		respond(commandId, `Wrote the last agent response to ${filePath}.`);
+		return;
+	}
+	const result = await copyToClipboard(payload);
 	if (!result.ok) {
 		respond(commandId, "", result.reason);
 		return;
@@ -2358,6 +2430,8 @@ function handleEvent(frame) {
 	const eventName = textField(frame, "event");
 	state.sessionId = textField(frame, "session_id") || state.sessionId;
 	state.cwd = textField(frame, "cwd") || state.cwd;
+	const sessionAlias = textField(frame, "session_alias");
+	if (eventName === "session_start" || sessionAlias) state.sessionAlias = sessionAlias;
 	switch (eventName) {
 		case "assistant_message": {
 			const text = textField(frame, "text");
@@ -2383,7 +2457,7 @@ function handleHelloAck(frame) {
 	send({
 		type: "register_command",
 		name: NAME,
-		description: "copy the last agent response (Markdown or Jira markup)"
+		description: "copy the last agent response (clipboard or file; md or jira)"
 	});
 	send({
 		type: "subscribe",

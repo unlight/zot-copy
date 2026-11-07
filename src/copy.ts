@@ -1,9 +1,12 @@
 #!/usr/bin/env node
-/** zot /copy — copy the last agent response to the system clipboard. */
+/** zot /copy — copy the last agent response to the clipboard or a file. */
 
+import { writeFileSync } from 'node:fs';
+import path from 'node:path';
 import { createInterface } from 'node:readline';
 
 import { copyToClipboard } from './clipboard.ts';
+import { defaultFileName } from './filename.ts';
 import { DEFAULT_FORMAT, isSupportedFormat, toJira } from './format.ts';
 import {
   errorMessage,
@@ -30,6 +33,7 @@ interface SessionState {
   cwd: string;
   extensionDirectory: string;
   lastText: string;
+  sessionAlias: string;
   sessionId: string;
   stepText: string;
 }
@@ -38,6 +42,7 @@ const state: SessionState = {
   cwd: '',
   extensionDirectory: '',
   lastText: '',
+  sessionAlias: '',
   sessionId: '',
   stepText: '',
 };
@@ -64,20 +69,52 @@ async function cachedOrStoredText(): Promise<string> {
   });
 }
 
+interface CopyRequest {
+  file: boolean;
+  filePath: string;
+  format: string;
+}
+
+/** Parses `/copy` arguments; returns an error message for unknown input. */
+function parseCopyRequest(rawInput: string): CopyRequest | string {
+  const input = rawInput.trim();
+  if (!input) return { file: false, filePath: '', format: DEFAULT_FORMAT };
+  const spaceIndex = input.search(/\s/);
+  const head = (
+    spaceIndex === -1 ? input : input.slice(0, spaceIndex)
+  ).toLowerCase();
+  const tail = spaceIndex === -1 ? '' : input.slice(spaceIndex + 1).trim();
+  if (head === 'file')
+    return { file: true, filePath: tail, format: DEFAULT_FORMAT };
+  if (!isSupportedFormat(head)) {
+    return `Unknown format "${head}". Usage: /copy [md|jira] [file [path]].`;
+  }
+  if (!tail) return { file: false, filePath: '', format: head };
+  const fileMatch = /^file(?:\s+([\s\S]*))?$/i.exec(tail);
+  return fileMatch
+    ? { file: true, filePath: fileMatch[1]?.trim() ?? '', format: head }
+    : `Unknown arguments "${input}". Usage: /copy [md|jira] [file [path]].`;
+}
+
+/** Writes the payload and returns an error message, or undefined on success. */
+function writePayload(filePath: string, payload: string): string | undefined {
+  try {
+    writeFileSync(filePath, payload, 'utf8');
+    return undefined;
+  } catch (error) {
+    return `Could not write ${filePath}: ${errorMessage(error)}`;
+  }
+}
+
 async function handleCommandInvoked(frame: JsonObject): Promise<void> {
   const commandId = textField(frame, 'id');
   if (frame.name !== NAME) {
     respond(commandId, '', `unknown command /${textField(frame, 'name')}`);
     return;
   }
-  const format =
-    textField(frame, 'args').trim().toLowerCase() || DEFAULT_FORMAT;
-  if (!isSupportedFormat(format)) {
-    respond(
-      commandId,
-      '',
-      `Unknown format "${format}". Usage: /copy [md|jira].`,
-    );
+  const request = parseCopyRequest(textField(frame, 'args'));
+  if (typeof request === 'string') {
+    respond(commandId, '', request);
     return;
   }
   const text = await cachedOrStoredText();
@@ -88,7 +125,19 @@ async function handleCommandInvoked(frame: JsonObject): Promise<void> {
     );
     return;
   }
-  const payload = format === 'jira' ? toJira(text) : text;
+  const payload = request.format === 'jira' ? toJira(text) : text;
+  if (request.file) {
+    const target =
+      request.filePath || defaultFileName(state.sessionAlias, request.format);
+    const filePath = path.resolve(state.cwd || process.cwd(), target);
+    const writeError = writePayload(filePath, payload);
+    if (writeError) {
+      respond(commandId, '', writeError);
+      return;
+    }
+    respond(commandId, `Wrote the last agent response to ${filePath}.`);
+    return;
+  }
   const result = await copyToClipboard(payload);
   if (!result.ok) {
     respond(commandId, '', result.reason);
@@ -101,6 +150,10 @@ function handleEvent(frame: JsonObject): void {
   const eventName = textField(frame, 'event');
   state.sessionId = textField(frame, 'session_id') || state.sessionId;
   state.cwd = textField(frame, 'cwd') || state.cwd;
+  const sessionAlias = textField(frame, 'session_alias');
+  if (eventName === 'session_start' || sessionAlias) {
+    state.sessionAlias = sessionAlias;
+  }
   switch (eventName) {
     case 'assistant_message': {
       // The host emits one event per model step; only a final step is an answer.
@@ -136,7 +189,7 @@ function handleHelloAck(frame: JsonObject): void {
   send({
     type: 'register_command',
     name: NAME,
-    description: 'copy the last agent response (Markdown or Jira markup)',
+    description: 'copy the last agent response (clipboard or file; md or jira)',
   });
   send({ type: 'subscribe', events: SUBSCRIBED_EVENTS });
   send({ type: 'ready' });

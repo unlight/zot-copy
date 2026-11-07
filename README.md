@@ -2,8 +2,8 @@
 
 [![CI](https://github.com/unlight/zot-copy/actions/workflows/ci.yml/badge.svg)](https://github.com/unlight/zot-copy/actions/workflows/ci.yml)
 
-Copy the last agent response as Markdown or Jira wiki markup. A TypeScript
-extension for zot, running on Node.js.
+Copy the last agent response as Markdown or Jira wiki markup, to the
+clipboard or a file. A TypeScript extension for zot, running on Node.js.
 
 ## Install
 
@@ -25,10 +25,12 @@ Restart zot after installing or updating.
 ## Usage
 
 ```text
-/copy            # Markdown, copied as-is
-/copy markdown   # same as the default
-/copy md         # alias for markdown
-/copy jira       # Jira wiki markup
+/copy                     # Markdown to the clipboard
+/copy markdown            # same as the default
+/copy md                  # alias for markdown
+/copy jira                # Jira wiki markup to the clipboard
+/copy file [path]         # Markdown to a file
+/copy jira file [path]    # Jira wiki markup to a file
 ```
 
 The format argument is optional and case-insensitive. The default `md`
@@ -36,6 +38,11 @@ assumes the agent already writes Markdown and copies the text untouched.
 `jira` converts it through `marked` and `marked-jira`:
 headings become `h1.`, bold becomes `*bold*`, links become `[text|url]`,
 and fenced code becomes `{code}` blocks.
+
+`/copy file` writes instead of touching the clipboard. Without a path it
+creates `<session alias>-dd-mmm-YYYYTHH:mm.md` in the session working
+directory (`.jira` for Jira markup); relative paths resolve against that
+directory.
 
 ## How it works
 
@@ -52,6 +59,9 @@ and fenced code becomes `{code}` blocks.
   platform clipboard tool: `pbcopy` on macOS, `wl-copy` / `xclip` / `xsel`
   on Linux. Candidates are tried in order; a broken tool does not stop the
   fallback chain.
+- **File write** — `/copy file [path]` writes the payload with
+  `writeFileSync` instead of calling the clipboard, so it works over SSH and
+  headless hosts.
 - **Encoding** — frames are JSON lines in UTF-8 and clipboard payloads are
   handed over as UTF-8 regardless of the host locale.
 - **Format conversion** — `/copy jira` renders the stored Markdown with
@@ -73,7 +83,6 @@ and fenced code becomes `{code}` blocks.
 ## TODO / Ideas
 
 - **P1** Keep a short response history and support `/copy N`.
-- **P1** Add `/copy file [path]` to bypass the clipboard on SSH/headless hosts.
 - **P1** Add a panel picker for fenced code blocks, the full response and an
   "always copy full response" setting.
 - **P1** Add Windows (`clip.exe`/PowerShell), Termux and WSL clipboard backends.
