@@ -202,6 +202,26 @@ void test('jira format converts markdown', { skip: LINUX_ONLY }, t => {
   );
 });
 
+void test('j is an alias for jira', { skip: LINUX_ONLY }, t => {
+  const f = makeFixture(t);
+  stubTool(f, 'xclip');
+  const frames = runLines(f, [
+    helloAck(f),
+    {
+      type: 'event',
+      event: 'assistant_message',
+      text: '# Title\n\nSome **bold** and [link](https://example.com).',
+    },
+    { type: 'event', event: 'turn_end', stop: 'end_turn' },
+    { type: 'command_invoked', id: 'c1', name: 'copy', args: 'j' },
+  ]);
+  assert.ok(displayed(firstResponse(frames)).startsWith('Copied the last'));
+  assert.equal(
+    readFileSync(f.capture, 'utf8'),
+    'h1. Title\n\nSome *bold* and [link|https://example.com].',
+  );
+});
+
 void test('markdown format keeps the source text', { skip: LINUX_ONLY }, t => {
   const f = makeFixture(t);
   stubTool(f, 'xclip');

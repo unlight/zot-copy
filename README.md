@@ -29,13 +29,14 @@ Restart zot after installing or updating.
 /copy markdown            # same as the default
 /copy md                  # alias for markdown
 /copy jira                # Jira wiki markup to the clipboard
+/copy j                   # alias for jira
 /copy file [path]         # Markdown to a file
 /copy jira file [path]    # Jira wiki markup to a file
 ```
 
-The format argument is optional and case-insensitive. The default `md`
-assumes the agent already writes Markdown and copies the text untouched.
-`jira` converts it through `marked` and `marked-jira`:
+The format argument is optional and case-insensitive; `j` is short for
+`jira`. The default `md` assumes the agent already writes Markdown and copies
+the text untouched. `jira` converts it through `marked` and `marked-jira`:
 headings become `h1.`, bold becomes `*bold*`, links become `[text|url]`,
 and fenced code becomes `{code}` blocks.
 

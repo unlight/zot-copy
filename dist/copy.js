@@ -2192,12 +2192,14 @@ function index() {
 // src/format.ts
 /** Markdown formats supported by the /copy command. */
 const JIRA_FORMAT = "jira";
+const JIRA_ALIASES = /* @__PURE__ */ new Set(["jira", "j"]);
 const MARKDOWN_FORMATS = /* @__PURE__ */ new Set(["md", "markdown"]);
 const jiraParser = new Marked();
 jiraParser.use(index());
-/** Whether a lowercased format name is supported. */
-function isSupportedFormat(format) {
-	return MARKDOWN_FORMATS.has(format) || format === JIRA_FORMAT;
+/** Canonical lowercased format name, or undefined when unsupported. */
+function resolveFormat(format) {
+	if (MARKDOWN_FORMATS.has(format)) return format;
+	if (JIRA_ALIASES.has(format)) return JIRA_FORMAT;
 }
 /** Converts Markdown into Jira wiki markup. */
 function toJira(markdown) {
@@ -2369,17 +2371,18 @@ function parseCopyRequest(rawInput) {
 		filePath: tail,
 		format: "md"
 	};
-	if (!isSupportedFormat(head)) return `Unknown format "${head}". Usage: /copy [md|jira] [file [path]].`;
+	const format = resolveFormat(head);
+	if (!format) return `Unknown format "${head}". Usage: /copy [md|jira] [file [path]].`;
 	if (!tail) return {
 		file: false,
 		filePath: "",
-		format: head
+		format
 	};
 	const fileMatch = /^file(?:\s+([\s\S]*))?$/i.exec(tail);
 	return fileMatch ? {
 		file: true,
 		filePath: fileMatch[1]?.trim() ?? "",
-		format: head
+		format
 	} : `Unknown arguments "${input}". Usage: /copy [md|jira] [file [path]].`;
 }
 /** Writes the payload and returns an error message, or undefined on success. */

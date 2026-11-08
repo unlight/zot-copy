@@ -7,7 +7,7 @@ import { createInterface } from 'node:readline';
 
 import { copyToClipboard } from './clipboard.ts';
 import { defaultFileName } from './filename.ts';
-import { DEFAULT_FORMAT, isSupportedFormat, toJira } from './format.ts';
+import { DEFAULT_FORMAT, resolveFormat, toJira } from './format.ts';
 import {
   errorMessage,
   isObject,
@@ -86,13 +86,14 @@ function parseCopyRequest(rawInput: string): CopyRequest | string {
   const tail = spaceIndex === -1 ? '' : input.slice(spaceIndex + 1).trim();
   if (head === 'file')
     return { file: true, filePath: tail, format: DEFAULT_FORMAT };
-  if (!isSupportedFormat(head)) {
+  const format = resolveFormat(head);
+  if (!format) {
     return `Unknown format "${head}". Usage: /copy [md|jira] [file [path]].`;
   }
-  if (!tail) return { file: false, filePath: '', format: head };
+  if (!tail) return { file: false, filePath: '', format };
   const fileMatch = /^file(?:\s+([\s\S]*))?$/i.exec(tail);
   return fileMatch
-    ? { file: true, filePath: fileMatch[1]?.trim() ?? '', format: head }
+    ? { file: true, filePath: fileMatch[1]?.trim() ?? '', format }
     : `Unknown arguments "${input}". Usage: /copy [md|jira] [file [path]].`;
 }
 

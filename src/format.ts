@@ -6,14 +6,17 @@ import markedJira from 'marked-jira';
 export const DEFAULT_FORMAT = 'md';
 
 const JIRA_FORMAT = 'jira';
+const JIRA_ALIASES = new Set(['jira', 'j']);
 const MARKDOWN_FORMATS = new Set(['md', 'markdown']);
 
 const jiraParser = new Marked();
 jiraParser.use(markedJira());
 
-/** Whether a lowercased format name is supported. */
-export function isSupportedFormat(format: string): boolean {
-  return MARKDOWN_FORMATS.has(format) || format === JIRA_FORMAT;
+/** Canonical lowercased format name, or undefined when unsupported. */
+export function resolveFormat(format: string): string | undefined {
+  if (MARKDOWN_FORMATS.has(format)) return format;
+  if (JIRA_ALIASES.has(format)) return JIRA_FORMAT;
+  return undefined;
 }
 
 /** Converts Markdown into Jira wiki markup. */
