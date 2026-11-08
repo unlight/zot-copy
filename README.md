@@ -1,7 +1,5 @@
 # zot-copy
 
-[![CI](https://github.com/unlight/zot-copy/actions/workflows/ci.yml/badge.svg)](https://github.com/unlight/zot-copy/actions/workflows/ci.yml)
-
 Copy the last agent response as Markdown or Jira wiki markup, to the
 clipboard or a file. A TypeScript extension for zot, running on Node.js.
 
