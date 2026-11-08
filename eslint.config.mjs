@@ -1,10 +1,11 @@
 import js from '@eslint/js';
+import { defineConfig } from 'eslint/config';
 import prettier from 'eslint-plugin-prettier/recommended';
 import unicorn from 'eslint-plugin-unicorn';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
-export default tseslint.config(
+export default defineConfig(
   { ignores: ['coverage/**', 'node_modules/**'] },
   js.configs.recommended,
   tseslint.configs.recommendedTypeChecked,
