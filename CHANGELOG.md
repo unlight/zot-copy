@@ -1,3 +1,9 @@
+## [1.2.0](https://github.com/unlight/zot-copy/compare/v1.1.0...v1.2.0) (2026-11-08)
+
+### Features
+
+* Add j alias for jira ([160f5ee](https://github.com/unlight/zot-copy/commit/160f5eea8fe87ea6c010fbaf18a3fe2943cd50bc))
+
 ## [1.1.0](https://github.com/unlight/zot-copy/compare/v1.0.0...v1.1.0) (2026-11-07)
 
 ### Features
